@@ -34,6 +34,8 @@ const App: React.FC = () => {
   const [newClassName, setNewClassName] = useState("");
   const [newSectionName, setNewSectionName] = useState("");
   const [newStudentName, setNewStudentName] = useState("");
+  const [loading, setLoading] = useState<Boolean | false>(false);
+  const [toastText, setToastText] = useState<string | ''>('');
 
   // New Task Form States
   const [newTaskTitle, setNewTaskTitle] = useState("");
@@ -413,6 +415,7 @@ const App: React.FC = () => {
   };
 
   const handleAddStudent = async (classId: string, sectionId: string, name: string) => {
+    setLoading(true);
     try {
       // Add student to Firebase Auth and Firestore
       const newStudent = await addStudentToAuthAndFirestore(classId, sectionId, name, 0); // Initial points 0
@@ -444,6 +447,7 @@ const App: React.FC = () => {
       console.error("Failed to add student:", error);
       // Optionally, show an error message to the user
     }
+    setLoading(false);
   };
 
   const handleDeleteStudent = async (classId: string, sectionId: string, studentId: string) => {
@@ -547,6 +551,14 @@ const App: React.FC = () => {
     setChatMessages(prev => [...prev, { role: 'model', text: response }]);
     setIsTyping(false);
   };
+
+  const copyToClipboard = (str: string) => {
+    navigator.clipboard.writeText(str);
+    setToastText('تم النسخ!')
+    return setTimeout(() => {
+      setToastText('');
+    }, 1000);
+  }
 
   // --- Render Admin Views ---
 
@@ -1121,7 +1133,8 @@ const App: React.FC = () => {
                 <span className="text-gray-300 font-bold text-xs">{i + 1}</span>
                 <div>
                   <p className="text-sm font-medium">{student.name}</p>
-                  <p className="text-[10px] text-gray-400">كلمة المرور: {student.name.replace(/\s/g, '')}123</p>
+                  <p className="text-[10px] text-gray-400 flex items-center mb-2">اسم المستخدم: {student.name.replace(/\s/g, '')} <span onClick={() => copyToClipboard(student.name.replace(/\s/g, ''))}><Icon name="content_copy" /></span></p>
+                  <p className="text-[10px] text-gray-400 flex items-center mb-2">كلمة المرور: {student.name.replace(/\s/g, '')}123 <span onClick={() => copyToClipboard(student.name.replace(/\s/g, '') + '123')}><Icon name="content_copy" /></span></p>
                 </div>
               </div>
               <div className="flex items-center gap-4">
@@ -1538,6 +1551,18 @@ const App: React.FC = () => {
                                           activeView === AppView.CHALLENGES ? 'التحديات' : 'زراعتي'}
         </h2>
       </header>
+
+      {
+        loading ? <div className='loading flex items-center justify-around fixed top-0 right-0 left-0 bottom-0 z-[100] bg-[#4f855433]'>
+          <img src="https://c.tenor.com/SLFiTi_nrQ4AAAAj/loader.gif" alt='loading' />
+        </div> : <div></div>
+      }
+
+      {
+        toastText ? <div className='flex items-center justify-around fixed bottom-[100px] w-[300px] h-[50px] z-[100] left-[50%] translate-x-[-50%] bg-[#4f855433]'>
+          <p>{toastText}</p>
+        </div> : <div></div>
+      }
 
       <main className="flex-1 overflow-y-auto">
         {activeView === AppView.HOME && renderHome()}
