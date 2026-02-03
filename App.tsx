@@ -554,7 +554,7 @@ const App: React.FC = () => {
     <div className="p-4 pb-24 animate-in slide-in-from-right duration-500 overflow-x-hidden">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-primary-dark dark:text-primary">لوحة المعلم</h2>
+          <h2 className="text-2xl font-bold text-primary-dark dark:text-primary">لوحة المعلمة</h2>
           <p className="text-sm text-gray-500">إدارة المهام، المسابقات، والطلاب</p>
         </div>
         <div className="flex gap-2">
@@ -1121,7 +1121,6 @@ const App: React.FC = () => {
                 <span className="text-gray-300 font-bold text-xs">{i + 1}</span>
                 <div>
                   <p className="text-sm font-medium">{student.name}</p>
-                  <p className="text-xs text-gray-500">{student.email}</p>
                   <p className="text-[10px] text-gray-400">كلمة المرور: {student.name.replace(/\s/g, '')}123</p>
                 </div>
               </div>
@@ -1153,7 +1152,7 @@ const App: React.FC = () => {
         <button onClick={() => setActiveView(AppView.ADMIN)} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full">
           <Icon name="arrow_forward" />
         </button>
-        <h2 className="text-2xl font-bold">حساب المعلم</h2>
+        <h2 className="text-2xl font-bold">حساب المعلمة</h2>
       </div>
 
       <div className="bg-white dark:bg-[#1a2e1f] rounded-3xl p-8 shadow-sm border dark:border-gray-800 text-center mb-6">
@@ -1167,9 +1166,7 @@ const App: React.FC = () => {
             <Icon name="school" className="text-xl" filled />
           </div>
         </div>
-        <h2 className="text-2xl font-bold">Admin</h2>
-        <p className="text-[#61896f] dark:text-[#a3c3ad] font-medium mb-2">معلم العلوم والبيئة</p>
-        <p className="text-xs text-gray-400">مدرسة النهضة الابتدائية</p>
+        <h2 className="text-2xl font-bold">وضحى المري</h2>
       </div>
 
       <div className="space-y-3">
@@ -1526,7 +1523,7 @@ const App: React.FC = () => {
             activeView === AppView.TASKS ? 'مهامي' :
               activeView === AppView.CHAT ? 'مرشدي' :
                 activeView === AppView.PROFILE ? 'حسابي' :
-                  activeView === AppView.ADMIN ? 'المعلم' :
+                  activeView === AppView.ADMIN ? 'المعلمة' :
                     activeView === AppView.ADMIN_CLASSES ? 'الصفوف' :
                       activeView === AppView.ADMIN_ADD_CLASS ? 'إضافة صف' :
                         activeView === AppView.ADMIN_CLASS_DETAILS ? 'تفاصيل الصف' :
