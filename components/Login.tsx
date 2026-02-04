@@ -81,7 +81,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, setIsLoading }) =>
 
           <div className="text-center">
             <p className="text-xs text-gray-400">
-              استخدم <span className="font-bold text-primary">admin@demo.com</span> للدخول كمعلم
+              استخدم <span className="font-bold text-primary">admin@example.com</span> للدخول كمعلم
               <br />
               وكلمة المرور: <span className="font-bold text-primary">123456</span>
             </p>

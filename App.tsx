@@ -6,7 +6,7 @@ import { Icon } from './components/Icon';
 import { PlantAvatar } from './components/PlantAvatar'; // This import is not used, but it's in the original code. I'll keep it.
 import { chatWithMentor, getGardeningTip } from './services/geminiService';
 
-import { addClassToFirestore, addCompetitionToFirestore, auth, deleteCompetitionFromFirestore, fetchClassesFromFirestore, fetchCompetitionsFromFirestore, updateCompetitionInFirestore, createEmptyDailyCompletionRecord } from './services/firebase';
+import { addClassToFirestore, addCompetitionToFirestore, auth, deleteCompetitionFromFirestore, fetchClassesFromFirestore, fetchCompetitionsFromFirestore, updateCompetitionInFirestore, createEmptyDailyCompletionRecord, fetchClassById } from './services/firebase';
 import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signOut, User } from 'firebase/auth';
 import { addSectionToFirestore, addStudentToAuthAndFirestore, addTaskToFirestore, deleteStudentFromAuthAndFirestore, deleteTaskFromFirestore, fetchStudentClassSectionInfo, fetchStudentCompletedTasksForDay, fetchStudentData, fetchTasksFromFirestore, toggleStudentTaskCompletionInFirestore, updateStudentPointsAndLastOpenDate, updateTaskInFirestore } from './services/firebase'; // Import Firestore task functions and addSectionToFirestore
 
@@ -91,7 +91,6 @@ const App: React.FC = () => {
             }
             // Fetch student's completed tasks for today
             const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-            debugger
             let completedTasksIdsToday = await fetchStudentCompletedTasksForDay(user.uid, info.classId, info.sectionId, today);
             if (completedTasksIdsToday === null) {
               await createEmptyDailyCompletionRecord(user.uid, info.classId, info.sectionId, today);
@@ -113,7 +112,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const loadClasses = async () => {
-      if (isLoggedIn && isAdmin) {
+      if (isLoggedIn) {
         try {
           const fetchedClasses = await fetchClassesFromFirestore();
           setClasses(fetchedClasses);
@@ -126,10 +125,10 @@ const App: React.FC = () => {
     loadClasses();
   }, [isLoggedIn, isAdmin]);
 
-  // Effect for fetching competitions when admin logs in
+  // Effect for fetching competitions when user logs in (both admin and student)
   useEffect(() => {
     const loadCompetitions = async () => {
-      if (isLoggedIn && isAdmin) {
+      if (isLoggedIn) { // Fetch for both admin and student
         try {
           const fetchedCompetitions = await fetchCompetitionsFromFirestore();
           setCompetitions(fetchedCompetitions);
@@ -139,7 +138,8 @@ const App: React.FC = () => {
       }
     };
     loadCompetitions();
-  }, [isLoggedIn, isAdmin]);
+  }, [isLoggedIn]);
+
   // Effect for fetching tasks when user logs in
   useEffect(() => {
     const loadTasks = async () => {
@@ -417,6 +417,10 @@ const App: React.FC = () => {
       // Add student to Firebase Auth and Firestore
       const newStudent = await addStudentToAuthAndFirestore(classId, sectionId, name, 0); // Initial points 0
 
+      // After adding the student, the admin might be logged out and the new student logged in.
+      // We need to re-authenticate the admin to maintain their session.
+      await signInWithEmailAndPassword(auth, 'admin@example.com', 'admin123'); // Re-authenticate admin
+
       setClasses(prevClasses => prevClasses.map(c => {
         if (c.id === classId) {
           return {
@@ -487,7 +491,6 @@ const App: React.FC = () => {
 
   // Common Task Toggle (Student Logic)
   const toggleTask = (id: string) => {
-    debugger
     setTasks(prev => prev.map(task => {
       if (task.id === id) {
         const newState = !task.completed;
@@ -1311,61 +1314,84 @@ const App: React.FC = () => {
   );
 
   const renderChallenges = () => {
-    const userClass = classes.find(c => c.id === 'c1');
-    const userComp = competitions[0];
+    // Find the student's class from the fetched classes.
+    const studentClass = studentInfo ? classes.find(c => c.id === studentInfo.classId) : undefined;
+    // Filter competitions relevant to the student.
+    const studentRelevantCompetitions = competitions.filter(comp => {
+      if (comp.type === 'inter-class') {
+        return true; // All inter-class competitions are relevant
+      }
+      // For intra-class, it must target the student's class
+      return comp.type === 'intra-class' && comp.targetClassId === studentInfo?.classId;
+    });
 
+    // Calculate class rankings (if studentClass is available).
+    // Note: If 'classes' state only contains the student's class, this ranking will be limited.
     const classRankings = classes.map(c => ({
       name: c.name,
       points: c.sections.reduce((acc, s) => acc + s.students.reduce((acc2, st) => acc2 + st.points, 0), 0)
     })).sort((a, b) => b.points - a.points);
 
-    const studentRankings = userClass?.sections.flatMap(s => s.students).sort((a, b) => b.points - a.points) || [];
+    // Calculate student rankings within their class (if studentClass is available)
+    const studentRankings = studentClass?.sections.flatMap(s => s.students).sort((a, b) => b.points - a.points) || [];
 
     return (
       <div className="p-4 pb-24 animate-in slide-in-from-bottom duration-500">
         <h2 className="text-2xl font-bold mb-2">المسابقات والتحديات</h2>
         <p className="text-gray-500 text-sm mb-6">تنافس مع زملائك واجمع أكبر قدر من النقاط!</p>
 
-        {userComp && (
-          <section className="bg-white dark:bg-[#1a2e1f] rounded-3xl border dark:border-gray-800 p-6 shadow-sm mb-8">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-bold text-lg">{userComp.title}</h3>
-              <div className="bg-yellow-400 text-white px-3 py-1 rounded-full text-[10px] font-bold animate-pulse">
-                مسابقة نشطة
+        {studentRelevantCompetitions && studentRelevantCompetitions.length > 0 && (
+          studentRelevantCompetitions.map(userComp => (
+            <section key={userComp.id} className="bg-white dark:bg-[#1a2e1f] rounded-3xl border dark:border-gray-800 p-6 shadow-sm mb-8">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="font-bold text-lg">{userComp.title}</h3>
+                <div className="bg-yellow-400 text-white px-3 py-1 rounded-full text-[10px] font-bold animate-pulse">
+                  مسابقة نشطة
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-4">
-              <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest">لوحة المتصدرين (الصفوف)</h4>
-              <div className="space-y-3">
-                {classRankings.map((cr, idx) => (
-                  <div key={idx} className={`flex items-center justify-between p-3 rounded-2xl ${cr.name === 'الصف السادس' ? 'bg-primary/10 border border-primary/20' : 'bg-gray-50 dark:bg-gray-900'}`}>
-                    <div className="flex items-center gap-3">
-                      <div className={`size-8 rounded-full flex items-center justify-center font-bold text-sm ${idx === 0 ? 'bg-yellow-400 text-white' : 'bg-gray-200 text-gray-500'}`}>
-                        {idx + 1}
+              <div className="space-y-4">
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest">لوحة المتصدرين (الصفوف)</h4>
+                <div className="space-y-3">
+                  {classRankings.map((cr, idx) => (
+                    <div key={idx} className={`flex items-center justify-between p-3 rounded-2xl ${cr.name === 'الصف السادس' ? 'bg-primary/10 border border-primary/20' : 'bg-gray-50 dark:bg-gray-900'}`}>
+                      <div className={`flex items-center gap-3 ${cr.name === studentClass?.name ? 'text-primary' : ''}`}>
+                        <div className={`size-8 rounded-full flex items-center justify-center font-bold text-sm ${idx === 0 ? 'bg-yellow-400 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                          {idx + 1}
+                        </div>
+                        <span className="font-bold text-sm">{cr.name}</span>
                       </div>
-                      <span className="font-bold text-sm">{cr.name}</span>
+                      <span className="text-sm font-bold text-primary">{cr.points} نقطة</span>
                     </div>
-                    <span className="text-sm font-bold text-primary">{cr.points} نقطة</span>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
+          ))
+        )}
+        {studentRelevantCompetitions.length === 0 && (
+          <div className="text-center py-20 opacity-30">
+            <Icon name="military_tech" className="text-6xl mb-4" />
+            <p>لا يوجد مسابقات نشطة حالياً لك</p>
+          </div>
         )}
 
         <section>
           <h3 className="font-bold text-lg mb-4">أفضل الطلاب في صفك</h3>
           <div className="bg-white dark:bg-[#1a2e1f] rounded-2xl border dark:border-gray-800 divide-y dark:divide-gray-800">
-            {studentRankings.map((st, idx) => (
-              <div key={st.id} className="p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className={`text-xs font-bold ${idx < 3 ? 'text-yellow-500' : 'text-gray-300'}`}>{idx + 1}</span>
-                  <p className="text-sm font-medium">{st.name}</p>
+            {studentRankings.length > 0 ? (
+              studentRankings.map((st, idx) => (
+                <div key={st.id} className="p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className={`text-xs font-bold ${idx < 3 ? 'text-yellow-500' : 'text-gray-300'}`}>{idx + 1}</span>
+                    <p className="text-sm font-medium">{st.name}</p>
+                  </div>
+                  <span className="text-xs font-bold text-primary">{st.points} pts</span>
                 </div>
-                <span className="text-xs font-bold text-primary">{st.points} pts</span>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-center py-10 text-gray-400 text-sm italic">لا يوجد طلاب في هذا الصف بعد</p>
+            )}
           </div>
         </section>
       </div>

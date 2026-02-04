@@ -293,9 +293,8 @@ export const toggleStudentTaskCompletionInFirestore = async (
   isCompleted: boolean
 ) => {
   const dailyCompletionRef = doc(db, 'classes', classId, 'sections', sectionId, 'students', studentUid, 'dailyCompletions', dateString);
-debugger
   if (isCompleted) {
-    await updateDoc(dailyCompletionRef, { completedTasks: arrayUnion(taskId) }, { merge: true }); // Use merge: true to create if not exists
+    await setDoc(dailyCompletionRef, { completedTasks: arrayUnion(taskId) }, { merge: true }); // Use merge: true to create if not exists
   } else {
     await updateDoc(dailyCompletionRef, { completedTasks: arrayRemove(taskId) });
   }
@@ -316,7 +315,7 @@ export const fetchStudentCompletedTasksForDay = async (
   classId: string,
   sectionId: string,
   dateString: string // YYYY-MM-DD
-): Promise<string[]> => { 
+): Promise<string[] | null> => { 
   const dailyCompletionRef = doc(db, 'classes', classId, 'sections', sectionId, 'students', studentUid, 'dailyCompletions', dateString);
   const docSnap = await getDoc(dailyCompletionRef);
   if (docSnap.exists()) {
@@ -325,6 +324,19 @@ export const fetchStudentCompletedTasksForDay = async (
   }
   return null;
 };
+
+export const fetchClassById = async (classId: string) => {
+  const classRef = doc(db, 'classes', classId);
+  const docSnap = await getDoc(classRef);
+  if (docSnap.exists()) {
+    const _class = docSnap.data();
+    return {
+      ..._class,
+      id: classId,
+    }
+  }
+  return null;
+}; 
 
 // New function to fetch a student's full data from the nested collection
 export const fetchStudentData = async (classId: string, sectionId: string, studentUid: string) => {
