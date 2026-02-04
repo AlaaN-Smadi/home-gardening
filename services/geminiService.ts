@@ -7,7 +7,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 export const getGardeningTip = async () => {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       contents: "أعطني نصيحة سريعة ومحفزة لطلاب المدارس عن الزراعة المنزلية في جملة واحدة باللغة العربية.",
       config: {
         systemInstruction: "You are a friendly gardening mentor for kids. Keep responses brief, encouraging, and in Arabic.",
@@ -25,7 +25,7 @@ export const getGardeningTip = async () => {
 export const chatWithMentor = async (message: string, history: { role: 'user' | 'model', parts: { text: string }[] }[]) => {
   try {
     const chat = ai.chats.create({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       config: {
         systemInstruction: "أنت مرشد زراعي خبير وصديق للطلاب. اسمك 'زراعي'. تساعدهم في حل مشاكل نباتاتهم وتشجعهم على الزراعة المنزلية. كن مرحاً وبسيطاً في لغتك.",
       },
