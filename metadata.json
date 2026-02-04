@@ -1,0 +1,8 @@
+
+{
+  "name": "Ziraati - My Garden App",
+  "description": "An educational and gamified application designed to raise school students' awareness about home gardening, featuring digital plant tracking, daily tasks, and an AI gardening mentor.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
