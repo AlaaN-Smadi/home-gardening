@@ -1164,26 +1164,12 @@ const App: React.FC = () => {
             <Icon name="school" className="text-xl" filled />
           </div>
         </div>
-        <h2 className="text-2xl font-bold">أ. محمد بن أحمد</h2>
+        <h2 className="text-2xl font-bold">Admin</h2>
         <p className="text-[#61896f] dark:text-[#a3c3ad] font-medium mb-2">معلم العلوم والبيئة</p>
         <p className="text-xs text-gray-400">مدرسة النهضة الابتدائية</p>
       </div>
 
       <div className="space-y-3">
-        <div className="bg-white dark:bg-[#1a2e1f] p-5 rounded-2xl border dark:border-gray-800">
-          <h4 className="text-xs text-gray-500 font-bold mb-3">إحصائيات التدريس</h4>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="text-center">
-              <p className="text-xl font-bold text-primary">15</p>
-              <p className="text-[10px] text-gray-500">سنة خبرة</p>
-            </div>
-            <div className="text-center border-r dark:border-gray-700">
-              <p className="text-xl font-bold text-primary">8</p>
-              <p className="text-[10px] text-gray-500">أوسمة تقدير</p>
-            </div>
-          </div>
-        </div>
-
         <button
           onClick={toggleDarkMode}
           className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a2e1f] rounded-2xl border dark:border-gray-800"
@@ -1453,7 +1439,7 @@ const App: React.FC = () => {
           )}
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-2 mr-2 text-right">اسم الطالب</label>
+              <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-2 mr-2 text-right">اسم</label>
               <div className="relative">
                 <Icon name="person" className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
