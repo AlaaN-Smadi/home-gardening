@@ -1,6 +1,7 @@
 export enum AppView {
   HOME = 'home',
   TASKS = 'tasks',
+  REWARDS = 'rewards',
   LEARN = 'learn',
   CHALLENGES = 'challenges',
   PROFILE = 'profile',
@@ -17,7 +18,8 @@ export enum AppView {
   ADMIN_EDIT_TASK = 'admin_edit_task',
   ADMIN_COMPETITIONS = 'admin_competitions',
   ADMIN_ADD_COMPETITION = 'admin_add_competition',
-  ADMIN_EDIT_COMPETITION = 'admin_edit_competition'
+  ADMIN_EDIT_COMPETITION = 'admin_edit_competition',
+  ADMIN_REWARDS = 'admin_rewards'
 }
 
 export interface Task {
@@ -31,6 +33,27 @@ export interface Task {
   category: string;
 }
 
+export interface SchoolReward {
+  id: string;
+  title: string;
+  description: string;
+  cost: number;
+  icon: string;
+  color: string;
+  category: 'canteen' | 'honor' | 'tools' | 'privilege';
+  stock?: number;
+}
+
+export interface RedeemedReward {
+  id: string;
+  rewardId: string;
+  rewardTitle: string;
+  cost: number;
+  redeemedAt: string;
+  code: string;
+  status: 'active' | 'used';
+}
+
 export interface StudentStats {
   name: string;
   level: string;
@@ -38,6 +61,10 @@ export interface StudentStats {
   streak: number;
   completedTasks: number;
   totalTasks: number;
+  recycledItemsCount?: number;
+  className?: string;
+  sectionName?: string;
+  email?: string;
 }
 
 export interface ChatMessage {

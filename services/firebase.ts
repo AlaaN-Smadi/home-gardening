@@ -1,10 +1,9 @@
 import { initializeApp } from 'firebase/app';
 import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
-import { getFirestore, collection, addDoc, getDocs, query, orderBy, doc, updateDoc, deleteDoc, serverTimestamp, getDoc, setDoc, writeBatch, Timestamp, arrayUnion, arrayRemove, collectionGroup, where } from 'firebase/firestore'; // Import getAuth for createUserWithEmailAndPassword
-import { Task } from '../types'; // Assuming types.ts is in the parent directory
+import { getFirestore, collection, addDoc, getDocs, query, orderBy, doc, updateDoc, deleteDoc, serverTimestamp, getDoc, setDoc, writeBatch, Timestamp, arrayUnion, arrayRemove, collectionGroup, where } from 'firebase/firestore';
+import { Task } from '../types';
 
-// Your Firebase configuration
-// IMPORTANT: Replace with your actual Firebase project configuration
+// Firebase configuration from environment
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_API_KEY,
   authDomain: import.meta.env.VITE_AUTH_DOMAIN,
@@ -33,7 +32,7 @@ export const addTaskToFirestore = async (taskData: Omit<Task, 'id'>) => {
 // Function to fetch tasks from Firestore
 export const fetchTasksFromFirestore = async (): Promise<Task[]> => {
   const tasksCollection = collection(db, 'tasks');
-  const q = query(tasksCollection, orderBy('createdAt', 'desc')); // Order by creation time
+  const q = query(tasksCollection, orderBy('createdAt', 'desc'));
   const querySnapshot = await getDocs(q);
   const tasks: Task[] = [];
   querySnapshot.forEach((doc) => {
@@ -87,7 +86,6 @@ export const fetchClassesFromFirestore = async (): Promise<any[]> => {
 
 // Function to add a class to Firestore
 export const addClassToFirestore = async (classData: { id: string; name: string; sections: any[] }) => {
-  // Use setDoc to specify the document ID
   await setDoc(doc(db, 'classes', classData.id), { name: classData.name });
 };
 
@@ -102,26 +100,25 @@ export const deleteClassFromFirestore = async (classId: string) => {
   const classRef = doc(db, 'classes', classId);
   const batch = writeBatch(db);
   
-  // Delete all sections and their students within the class
   const sectionsSnapshot = await getDocs(collection(classRef, 'sections'));
   for (const sectionDoc of sectionsSnapshot.docs) {
-    const studentsSnapshot = await getDocs(collection(sectionRef, 'students'));
+    const studentsSnapshot = await getDocs(collection(sectionDoc.ref, 'students'));
     for (const studentDoc of studentsSnapshot.docs) {
       batch.delete(studentDoc.ref);
     }
     batch.delete(sectionDoc.ref);
   }
-  batch.delete(classRef); // Delete the class document itself
+  batch.delete(classRef);
   await batch.commit();
 };
 
 // Function to add a section to Firestore
-export const addSectionToFirestore = async (classId: string, sectionData: { id: string; name: string; students: any[] }) => { // Changed type to any[]
+export const addSectionToFirestore = async (classId: string, sectionData: { id: string; name: string; students: any[] }) => {
   await setDoc(doc(db, 'classes', classId, 'sections', sectionData.id), { name: sectionData.name });
 };
 
 // Function to update a section in Firestore
-export const updateSectionInFirestore = async (classId: string, sectionId: string, sectionData: { name: string }) => { // Changed type to any
+export const updateSectionInFirestore = async (classId: string, sectionId: string, sectionData: { name: string }) => {
   const sectionRef = doc(db, 'classes', classId, 'sections', sectionId);
   await updateDoc(sectionRef, { name: sectionData.name });
 };
@@ -136,15 +133,18 @@ export const deleteSectionFromFirestore = async (classId: string, sectionId: str
   await batch.commit();
 };
 
-// Function to add a student to Firestore (now handled by addStudentToAuthAndFirestore)
+// Function to add a student to Firestore
 export const addStudentToFirestore = async (classId: string, sectionId: string, studentData: { id: string; name: string; points: number }) => {
   await setDoc(doc(db, 'classes', classId, 'sections', sectionId, 'students', studentData.id), studentData);
+  await setDoc(doc(db, 'users', studentData.id), { ...studentData, classId, sectionId }, { merge: true });
 };
 
 // Function to update a student in Firestore
 export const updateStudentInFirestore = async (classId: string, sectionId: string, studentId: string, studentData: { name?: string; points?: number }) => {
   const studentRef = doc(db, 'classes', classId, 'sections', sectionId, 'students', studentId);
   await updateDoc(studentRef, studentData);
+  const userRef = doc(db, 'users', studentId);
+  await setDoc(userRef, studentData, { merge: true });
 };
 
 // Function to delete a student from Firestore
@@ -153,11 +153,10 @@ export const deleteStudentFromAuthAndFirestore = async (classId: string, section
   const userRef = doc(db, 'users', studentUid);
   const batch = writeBatch(db);
 
-  batch.delete(studentRef); // Delete student document in class subcollection
-  batch.delete(userRef); // Delete student document in top-level users collection
+  batch.delete(studentRef);
+  batch.delete(userRef);
 
   await batch.commit();
-  console.warn("Deleting a user's Firebase Auth account from client-side is not directly possible for an admin. This action only deletes Firestore data. A backend function is typically required for full user deletion.");
 };
 
 // Function to add a competition to Firestore
@@ -165,8 +164,8 @@ export const addCompetitionToFirestore = async (competitionData: any) => {
   if (!competitionData.targetClassId) competitionData.targetClassId = '';
   const docRef = await addDoc(collection(db, 'competitions'), {
     ...competitionData,
-    createdAt: serverTimestamp(), // Add server timestamp for creation
-    startDate: Timestamp.fromDate(new Date(competitionData.startDate)), // Convert date strings to Firestore Timestamps
+    createdAt: serverTimestamp(),
+    startDate: Timestamp.fromDate(new Date(competitionData.startDate)),
     endDate: Timestamp.fromDate(new Date(competitionData.endDate)),
   });
   return docRef.id;
@@ -183,8 +182,8 @@ export const fetchCompetitionsFromFirestore = async (): Promise<any[]> => {
     competitions.push({
       ...data,
       id: doc.id,
-      startDate: data.startDate?.toDate().toISOString().split('T')[0], // Convert Timestamp back to string for UI
-      endDate: data.endDate?.toDate().toISOString().split('T')[0], // Convert Timestamp back to string for UI
+      startDate: data.startDate?.toDate().toISOString().split('T')[0],
+      endDate: data.endDate?.toDate().toISOString().split('T')[0],
     });
   });
   return competitions;
@@ -213,108 +212,241 @@ export const deleteCompetitionFromFirestore = async (id: string) => {
 
 // Function to add a student to Firestore and register them in Firebase Auth
 export const addStudentToAuthAndFirestore = async (classId: string, sectionId: string, studentName: string, initialPoints: number) => {
-  const email = studentName.replace(/\s/g, '').toLowerCase() + '@example.com'; // Generate email from name
-  const password = studentName.replace(/\s/g, '') + '123'; // Generate password from name
+  const email = studentName.replace(/\s/g, '').toLowerCase() + '@example.com';
+  const password = studentName.replace(/\s/g, '') + '123';
 
   try {
-    // 1. Register student in Firebase Auth
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const studentUid = userCredential.user.uid;
 
-    // 2. Add student data to Firestore
     const studentData = {
       id: studentUid,
       name: studentName,
       points: initialPoints,
-      email: email, // Store email for reference
-      // Add any other student-specific fields here
-      completedTasks: {}, // Initialize completedTasks as an empty object
-      lastOpenDate: serverTimestamp(), // Initialize lastOpenDate
-    };
-
-    await setDoc(doc(db, 'classes', classId, 'sections', sectionId, 'students', studentUid), studentData);
-
-    return studentData; // Return the full student object
-  } catch (error) {
-    console.error("Error adding student to Auth and Firestore:", error);
-    throw error; // Re-throw the error for App.tsx to handle
-  }
-};
-
-
-// New function to fetch student's class and section info
-export const fetchStudentClassSectionInfo = async (studentUid: string) => {
-  // let's get student here
-  const studentQuery = query(
-      collectionGroup(db, 'students'), 
-      where('id', '==', studentUid) // '__name__' refers to the Document ID
-    );
-
-    const querySnapshot = await getDocs(studentQuery);
-    if (!querySnapshot.empty) {
-  // Since IDs are usually unique, we take the first result
-  const studentDoc = querySnapshot.docs[0];
-  if (studentDoc.exists()) {
-    const fullPath = studentDoc.ref.path;
-    const classId = fullPath.split('/')[1];
-    const sectionId = fullPath.split('/')[3];
-    return {
-      ...studentDoc.data(),
+      email: email,
       classId: classId,
       sectionId: sectionId,
-    } as { classId: string, sectionId: string, name: string, email: string, role: string };
+      completedTasks: {},
+      lastOpenDate: serverTimestamp(),
+    };
+
+    // Save in the class/section/students hierarchy
+    await setDoc(doc(db, 'classes', classId, 'sections', sectionId, 'students', studentUid), studentData);
+
+    // Also save in top-level users collection for instant, reliable lookups
+    await setDoc(doc(db, 'users', studentUid), studentData);
+
+    return studentData;
+  } catch (error) {
+    console.error("Error adding student to Auth and Firestore:", error);
+    throw error;
   }
-  
-  return null;
-} else {
-  console.log("No student found with that UID anywhere.");
-  return null;
-}
 };
 
-// New function to create an empty daily completion record
+// Comprehensive function to fetch student's class, section, and profile info
+export const fetchStudentClassSectionInfo = async (studentUid: string, userEmail?: string | null) => {
+  // 1. Try checking top-level users collection first
+  try {
+    const userDocRef = doc(db, 'users', studentUid);
+    const userDocSnap = await getDoc(userDocRef);
+    if (userDocSnap.exists()) {
+      const uData = userDocSnap.data();
+      if (uData.classId && uData.sectionId) {
+        let className = uData.className || '';
+        let sectionName = uData.sectionName || '';
+        if (!className) {
+          try {
+            const cSnap = await getDoc(doc(db, 'classes', uData.classId));
+            if (cSnap.exists()) className = cSnap.data()?.name || '';
+          } catch (e) {
+            console.warn(e);
+          }
+        }
+        if (!sectionName) {
+          try {
+            const sSnap = await getDoc(doc(db, 'classes', uData.classId, 'sections', uData.sectionId));
+            if (sSnap.exists()) sectionName = sSnap.data()?.name || '';
+          } catch (e) {
+            console.warn(e);
+          }
+        }
+        return {
+          ...uData,
+          id: studentUid,
+          classId: uData.classId,
+          sectionId: uData.sectionId,
+          className,
+          sectionName,
+          name: uData.name || '',
+          points: uData.points || 0
+        };
+      }
+    }
+  } catch (err) {
+    console.warn("Could not fetch from users collection:", err);
+  }
+
+  // 2. Try collectionGroup query by studentUid or email
+  try {
+    const studentQuery = query(
+      collectionGroup(db, 'students'), 
+      where('id', '==', studentUid)
+    );
+    const querySnapshot = await getDocs(studentQuery);
+    if (!querySnapshot.empty) {
+      const studentDoc = querySnapshot.docs[0];
+      const fullPath = studentDoc.ref.path;
+      const parts = fullPath.split('/');
+      const classId = parts[1];
+      const sectionId = parts[3];
+      let className = '';
+      let sectionName = '';
+      try {
+        const cSnap = await getDoc(doc(db, 'classes', classId));
+        if (cSnap.exists()) className = cSnap.data()?.name || '';
+        const sSnap = await getDoc(doc(db, 'classes', classId, 'sections', sectionId));
+        if (sSnap.exists()) sectionName = sSnap.data()?.name || '';
+      } catch (e) {
+        console.warn(e);
+      }
+      return {
+        ...studentDoc.data(),
+        id: studentUid,
+        classId,
+        sectionId,
+        className,
+        sectionName,
+      };
+    }
+  } catch (err) {
+    console.warn("CollectionGroup query error:", err);
+  }
+
+  // 3. Fallback scan through classes & sections
+  try {
+    const classesSnapshot = await getDocs(collection(db, 'classes'));
+    for (const classDoc of classesSnapshot.docs) {
+      const classId = classDoc.id;
+      const className = classDoc.data()?.name || '';
+      const sectionsSnapshot = await getDocs(collection(db, 'classes', classId, 'sections'));
+      for (const secDoc of sectionsSnapshot.docs) {
+        const sectionId = secDoc.id;
+        const sectionName = secDoc.data()?.name || '';
+
+        // Check if student doc with studentUid exists
+        const directStudentDoc = await getDoc(doc(db, 'classes', classId, 'sections', sectionId, 'students', studentUid));
+        if (directStudentDoc.exists()) {
+          const sData = directStudentDoc.data();
+          return {
+            ...sData,
+            id: studentUid,
+            classId,
+            sectionId,
+            className,
+            sectionName,
+          };
+        }
+
+        // Search students in section by email
+        if (userEmail) {
+          const studentsSnap = await getDocs(collection(db, 'classes', classId, 'sections', sectionId, 'students'));
+          for (const sDoc of studentsSnap.docs) {
+            const sData = sDoc.data();
+            const emailMatch = sData.email && sData.email.toLowerCase() === userEmail.toLowerCase();
+            const idMatch = sData.id === studentUid || sDoc.id === studentUid;
+            if (emailMatch || idMatch) {
+              return {
+                ...sData,
+                id: sDoc.id,
+                classId,
+                sectionId,
+                className,
+                sectionName,
+              };
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Error scanning classes for student:", err);
+  }
+
+  return null;
+};
+
+// Function to create an empty daily completion record
 export const createEmptyDailyCompletionRecord = async (
   studentUid: string,
   classId: string,
   sectionId: string,
-  dateString: string // YYYY-MM-DD
+  dateString: string
 ) => {
   const dailyCompletionRef = doc(db, 'classes', classId, 'sections', sectionId, 'students', studentUid, 'dailyCompletions', dateString);
   await setDoc(dailyCompletionRef, { completedTasks: [] }, { merge: true });
 };
 
-// New function to toggle student task completion for a specific day
+// Function to toggle student task completion for a specific day
 export const toggleStudentTaskCompletionInFirestore = async (
   studentUid: string,
   classId: string,
   sectionId: string,
   taskId: string,
-  dateString: string, // YYYY-MM-DD
+  dateString: string,
   isCompleted: boolean
 ) => {
   const dailyCompletionRef = doc(db, 'classes', classId, 'sections', sectionId, 'students', studentUid, 'dailyCompletions', dateString);
   if (isCompleted) {
-    await setDoc(dailyCompletionRef, { completedTasks: arrayUnion(taskId) }, { merge: true }); // Use merge: true to create if not exists
+    await setDoc(dailyCompletionRef, { completedTasks: arrayUnion(taskId) }, { merge: true });
   } else {
     await updateDoc(dailyCompletionRef, { completedTasks: arrayRemove(taskId) });
   }
 };
 
-// New function to update student's points and last open date
+// Function to update student's points and last open date
 export const updateStudentPointsAndLastOpenDate = async (classId: string, sectionId: string, studentUid: string, points: number) => {
-  const studentRef = doc(db, 'classes', classId, 'sections', sectionId, 'students', studentUid);
-  await updateDoc(studentRef, {
-    points: points,
-    lastOpenDate: serverTimestamp(),
-  });
+  try {
+    const studentRef = doc(db, 'classes', classId, 'sections', sectionId, 'students', studentUid);
+    await updateDoc(studentRef, {
+      points: points,
+      lastOpenDate: serverTimestamp(),
+    });
+  } catch (e) {
+    console.warn("Could not update studentRef points:", e);
+  }
+
+  try {
+    const userRef = doc(db, 'users', studentUid);
+    await setDoc(userRef, {
+      points: points,
+      lastOpenDate: serverTimestamp(),
+    }, { merge: true });
+  } catch (e) {
+    console.warn("Could not update userRef points:", e);
+  }
 };
 
-// New function to fetch student's completed tasks for a specific day
+// Function to update points in user doc when student has no class yet
+export const updateUserPoints = async (studentUid: string, points: number) => {
+  const userRef = doc(db, 'users', studentUid);
+  await setDoc(userRef, {
+    points: points,
+    lastOpenDate: serverTimestamp(),
+  }, { merge: true });
+};
+
+// Function to save or update top-level user profile
+export const saveUserProfile = async (studentUid: string, data: any) => {
+  const userRef = doc(db, 'users', studentUid);
+  await setDoc(userRef, data, { merge: true });
+};
+
+// Function to fetch student's completed tasks for a specific day
 export const fetchStudentCompletedTasksForDay = async (
   studentUid: string,
   classId: string,
   sectionId: string,
-  dateString: string // YYYY-MM-DD
+  dateString: string
 ): Promise<string[] | null> => { 
   const dailyCompletionRef = doc(db, 'classes', classId, 'sections', sectionId, 'students', studentUid, 'dailyCompletions', dateString);
   const docSnap = await getDoc(dailyCompletionRef);
@@ -333,35 +465,139 @@ export const fetchClassById = async (classId: string) => {
     return {
       ..._class,
       id: classId,
-    }
+    };
   }
   return null;
 }; 
 
-// New function to fetch a student's full data from the nested collection
+// Function to fetch a student's full data from the nested collection
 export const fetchStudentData = async (classId: string, sectionId: string, studentUid: string) => {
-  const studentRef = doc(db, 'classes', classId, 'sections', sectionId, 'students', studentUid);
-  const docSnap = await getDoc(studentRef);
-  if (docSnap.exists()) {
-    return docSnap.data();
+  try {
+    const studentRef = doc(db, 'classes', classId, 'sections', sectionId, 'students', studentUid);
+    const docSnap = await getDoc(studentRef);
+    if (docSnap.exists()) {
+      return docSnap.data();
+    }
+  } catch (e) {
+    console.warn("fetchStudentData error:", e);
   }
+
+  // Fallback to top-level users collection
+  try {
+    const userRef = doc(db, 'users', studentUid);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      return userSnap.data();
+    }
+  } catch (e) {
+    console.warn("fetchStudentData users fallback error:", e);
+  }
+
   return null;
 };
 
-// New function to fetch all daily completion records for a student
+// Function to fetch all daily completion records for a student
 export const fetchStudentDailyCompletions = async (
   studentUid: string,
   classId: string,
   sectionId: string
 ): Promise<string[]> => {
-  const dailyCompletionsCollectionRef = collection(db, 'classes', classId, 'sections', sectionId, 'students', studentUid, 'dailyCompletions');
-  const querySnapshot = await getDocs(dailyCompletionsCollectionRef);
-  const completedDates: string[] = [];
-  querySnapshot.forEach((docSnap) => {
-    const data = docSnap.data();
-    if (data.completedTasks && data.completedTasks.length > 0) {
-      completedDates.push(docSnap.id); // doc.id is the dateString
+  try {
+    const dailyCompletionsCollectionRef = collection(db, 'classes', classId, 'sections', sectionId, 'students', studentUid, 'dailyCompletions');
+    const querySnapshot = await getDocs(dailyCompletionsCollectionRef);
+    const completedDates: string[] = [];
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (data.completedTasks && data.completedTasks.length > 0) {
+        completedDates.push(docSnap.id);
+      }
+    });
+    return completedDates;
+  } catch (e) {
+    console.warn("fetchStudentDailyCompletions error:", e);
+    return [];
+  }
+};
+
+// Calculate real consecutive days streak
+export const calculateStreak = (completionDates: string[]): number => {
+  if (!completionDates || completionDates.length === 0) return 0;
+  
+  const uniqueDates = Array.from(new Set(completionDates)).sort().reverse();
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+  // If student hasn't completed anything today or yesterday, streak is 0
+  if (!uniqueDates.includes(todayStr) && !uniqueDates.includes(yesterdayStr)) {
+    return 0;
+  }
+
+  let streak = 0;
+  let checkDate = uniqueDates.includes(todayStr) ? new Date(today) : new Date(yesterday);
+
+  while (true) {
+    const dateStr = checkDate.toISOString().split('T')[0];
+    if (uniqueDates.includes(dateStr)) {
+      streak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+    } else {
+      break;
     }
-  });
-  return completedDates;
+  }
+
+  return streak;
+};
+
+// Fetch redeemed rewards for a student
+export const fetchStudentRedeemedRewards = async (
+  studentUid: string,
+  classId?: string,
+  sectionId?: string
+): Promise<any[]> => {
+  try {
+    if (classId && sectionId) {
+      const colRef = collection(db, 'classes', classId, 'sections', sectionId, 'students', studentUid, 'redeemedRewards');
+      const qSnap = await getDocs(colRef);
+      if (!qSnap.empty) {
+        const items: any[] = [];
+        qSnap.forEach(d => items.push({ ...d.data(), id: d.id }));
+        return items;
+      }
+    }
+    const userColRef = collection(db, 'users', studentUid, 'redeemedRewards');
+    const uSnap = await getDocs(userColRef);
+    const items: any[] = [];
+    uSnap.forEach(d => items.push({ ...d.data(), id: d.id }));
+    return items;
+  } catch (err) {
+    console.warn("Could not fetch redeemed rewards from firestore:", err);
+    return [];
+  }
+};
+
+// Save a redeemed reward for a student
+export const saveStudentRedeemedReward = async (
+  studentUid: string,
+  redeemedItem: any,
+  classId?: string,
+  sectionId?: string
+) => {
+  try {
+    if (classId && sectionId) {
+      await setDoc(
+        doc(db, 'classes', classId, 'sections', sectionId, 'students', studentUid, 'redeemedRewards', redeemedItem.id),
+        redeemedItem
+      );
+    }
+    await setDoc(
+      doc(db, 'users', studentUid, 'redeemedRewards', redeemedItem.id),
+      redeemedItem
+    );
+  } catch (err) {
+    console.warn("Could not save redeemed reward to firestore:", err);
+  }
 };

@@ -1,7 +1,6 @@
-
 {
-  "name": "Ziraati - My Garden App",
-  "description": "An educational and gamified application designed to raise school students' awareness about home gardening, featuring digital plant tracking, daily tasks, and an AI gardening mentor.",
+  "name": "Tadweeri - تدويري",
+  "description": "A smart application designed to encourage female students to recycle, using a points and rewards system within the school environment.",
   "requestFramePermissions": [
     "camera"
   ]

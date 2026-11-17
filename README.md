@@ -1,20 +1,46 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Tadweeri - تدويري ♻️
+### منصة إعادة التدوير ونظام المكافآت المدرسية للطالبات
+**A smart application designed to encourage female students to recycle, using a points and rewards system within the school environment.**
 
-# Run and deploy your AI Studio app
+---
 
-This contains everything you need to run your app locally.
+## ✨ المميزات الرئيسية (Key Features)
 
-View your app in AI Studio: https://ai.studio/apps/temp/1
+1. **مهام التدوير اليومية (School Recycling Tasks)**:
+   - فرز العلب البلاستيكية، تجميع الأوراق والدفاتر المستعملة، علب العصير، واستخدام المطارات الصديقة للبيئة.
+   - كسب نقاط المكافأة فور إتمام كل مهمة فرز.
 
-## Run Locally
+2. **متجر المكافآت المدرسية (School Rewards & Points Store)**:
+   - استبدال النقاط بقسائم وجبات مجانية من المقصف المدرسي.
+   - شهادات شكر وتقدير رسمية "سفيرة التدوير".
+   - أطقم أدوات ومفكرات مصنوعة من مواد معاد تدويرها.
+   - إصدار أكواد قسائم فورية لعرضها على المعلمة أو مسؤولة المقصف.
 
-**Prerequisites:**  Node.js
+3. **مؤشر الأثر البيئي المدرسي (Eco Impact Meter)**:
+   - متابعة حية لعدد العلب البلاستيكية المفرزة، الأوراق المنقذة، ونسبة خفض الانبعاثات الكربونية.
 
+4. **المرشدة الذكية "تدويرة" (AI Recycling Mentor)**:
+   - مرشدة ذكية مدعومة بنماذج Gemini لتقديم نصائح سريعة ومساعدة الطالبات على فرز النفايات باحترافية.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+5. **المسابقات المدرسية (Inter-Class Recycling Competitions)**:
+   - تنافس بين الصفوف والشُعب للظفر بدرع الفصل الأكثر تدويرًا وجوائز النادي البيئي.
+
+6. **لوحة تحكم المعلمة والمشرفة (Teacher / Admin Panel)**:
+   - إدارة الصفوف والشعب وقوائم الطالبات.
+   - إضافة وتعديل مهام التدوير وتحديد النقاط.
+   - إدارة جوائز المقصف والمكافآت المدرسية.
+
+---
+
+## 🚀 التشغيل محلياً (Run Locally)
+
+```bash
+# 1. التثبيت
+npm install
+
+# 2. بدء سيرفر التطوير
+npm run dev
+
+# 3. بناء المشروع للإنتاج
+npm run build
+```

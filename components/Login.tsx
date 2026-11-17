@@ -31,17 +31,18 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, setIsLoading }) =>
     <div className="min-h-screen flex flex-col justify-center items-center p-6 bg-background-light dark:bg-background-dark max-w-[480px] mx-auto shadow-2xl">
       <div className="w-full space-y-8 animate-in fade-in zoom-in duration-500">
         <div className="text-center">
-          <div className="size-24 bg-primary/20 rounded-3xl flex items-center justify-center text-primary mx-auto mb-6">
-            <Icon name="eco" className="text-6xl" filled />
+          <div className="size-24 bg-primary/20 rounded-3xl flex items-center justify-center text-primary mx-auto mb-6 shadow-inner ring-4 ring-primary/10">
+            <Icon name="recycling" className="text-6xl text-primary animate-spin-slow" filled />
           </div>
-          <h1 className="text-4xl font-black text-primary-dark dark:text-primary mb-2">زراعتي</h1>
-          <p className="text-[#61896f] dark:text-[#a3c3ad] font-medium">خطوتك الأولى نحو عالم الزراعة المنزلية الممتع</p>
+          <h1 className="text-4xl font-black text-primary-dark dark:text-primary mb-2 tracking-tight">تدويري</h1>
+          <p className="text-emerald-700 dark:text-emerald-300 font-semibold text-sm">منصة التدوير والمكافآت الذكية لطالبات المدرسة</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">اجمعي النقاط بفرز النفايات واستبدليها بجوائز مدرسية قيّمة</p>
         </div>
 
-        <form onSubmit={handleLogin} className="bg-white dark:bg-[#1a2e1f] p-8 rounded-[2.5rem] shadow-xl border border-primary/10 space-y-6">
+        <form onSubmit={handleLogin} className="bg-white dark:bg-[#162b20] p-8 rounded-[2.5rem] shadow-xl border border-primary/20 space-y-6">
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-2 mr-2 text-right">البريد الإلكتروني</label>
+              <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-2 mr-2 text-right">البريد الإلكتروني / اسم الطالبة</label>
               <div className="relative">
                 <Icon name="person" className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
@@ -49,7 +50,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, setIsLoading }) =>
                   value={loginUsername}
                   onChange={(e) => setLoginUsername(e.target.value)}
                   className="w-full bg-gray-50 dark:bg-gray-900 border-none rounded-2xl p-4 pr-12 focus:ring-2 focus:ring-primary text-right"
-                  placeholder="أدخل بريدك الإلكتروني"
+                  placeholder="أدخلي بريدكِ المسجل"
                   required
                 />
               </div>
@@ -63,27 +64,28 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, setIsLoading }) =>
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
                   className="w-full bg-gray-50 dark:bg-gray-900 border-none rounded-2xl p-4 pr-12 focus:ring-2 focus:ring-primary text-right"
-                  placeholder="أدخل كلمة المرور"
+                  placeholder="أدخلي كلمة المرور"
                   required
                 />
               </div>
             </div>
           </div>
 
-          {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+          {error && <p className="text-red-500 text-sm text-center font-medium bg-red-50 dark:bg-red-950/30 p-3 rounded-xl">{error}</p>}
 
           <button
             type="submit"
-            className="w-full py-4 bg-primary text-white font-bold rounded-2xl shadow-lg shadow-primary/30 hover:bg-primary-dark transition-all active:scale-95"
+            className="w-full py-4 bg-primary text-white font-bold rounded-2xl shadow-lg shadow-primary/30 hover:bg-primary-dark transition-all active:scale-95 text-base flex items-center justify-center gap-2"
           >
-            تسجيل الدخول
+            <Icon name="login" className="text-xl" />
+            <span>تسجيل الدخول</span>
           </button>
 
-          <div className="text-center">
+          <div className="text-center pt-2 border-t border-gray-100 dark:border-gray-800" style={{display: "none"}}>
             <p className="text-xs text-gray-400">
-              استخدم <span className="font-bold text-primary">admin@example.com</span> للدخول كمعلم
+              دخول المشرفة والمعلمة: <span className="font-bold text-primary">admin@tadweer.com</span>
               <br />
-              وكلمة المرور: <span className="font-bold text-primary">123456</span>
+              كلمة المرور: <span className="font-bold text-primary">123456</span>
             </p>
           </div>
         </form>
