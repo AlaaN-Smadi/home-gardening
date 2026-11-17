@@ -76,6 +76,8 @@ export interface Student {
   id: string;
   name: string;
   points: number;
+  email?: string;
+  password?: string;
 }
 
 export interface Section {

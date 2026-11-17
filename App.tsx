@@ -32,7 +32,8 @@ import {
   deleteTaskFromFirestore,
   addSectionToFirestore,
   addStudentToAuthAndFirestore,
-  deleteStudentFromAuthAndFirestore
+  deleteStudentFromAuthAndFirestore,
+  registerStudentWithClass
 } from './services/firebase';
 import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signOut, User } from 'firebase/auth';
 
@@ -111,6 +112,7 @@ const App: React.FC = () => {
   const [newClassName, setNewClassName] = useState("");
   const [newSectionName, setNewSectionName] = useState("");
   const [newStudentName, setNewStudentName] = useState("");
+  const [newStudentPassword, setNewStudentPassword] = useState("abc@12345");
   const [loading, setLoading] = useState<boolean>(false);
   const [toastText, setToastText] = useState<string>('');
 
@@ -155,6 +157,11 @@ const App: React.FC = () => {
   const [password, setPassword] = useState("");
   const [isRegistering, setIsRegistering] = useState(false);
   const [authError, setAuthError] = useState("");
+
+  // Student Registration Class & Section selection
+  const [registerStudentName, setRegisterStudentName] = useState("");
+  const [selectedRegisterClassId, setSelectedRegisterClassId] = useState("");
+  const [selectedRegisterSectionId, setSelectedRegisterSectionId] = useState("");
 
   // ==========================================
   // REAL STUDENT DATA LOADER
@@ -319,38 +326,65 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const loadClasses = async () => {
-      if (isLoggedIn) {
-        try {
-          const fetchedClasses = await fetchClassesFromFirestore();
+      try {
+        const fetchedClasses = await fetchClassesFromFirestore();
+        if (fetchedClasses && fetchedClasses.length > 0) {
           setClasses(fetchedClasses);
-          
-          // If student is logged in, try to populate their class/section names if missing
-          if (user && !isAdmin && fetchedClasses.length > 0) {
-            for (const cls of fetchedClasses) {
-              for (const sec of cls.sections) {
-                const found = sec.students.find((s: Student) => s.id === user.uid || (user.email && (s as any).email === user.email));
-                if (found) {
-                  setStudentInfo({
-                    classId: cls.id,
-                    sectionId: sec.id,
-                    className: cls.name,
-                    sectionName: sec.name
-                  });
-                  setStats(prev => ({
-                    ...prev,
-                    name: found.name || prev.name,
-                    points: typeof found.points === 'number' ? found.points : prev.points,
-                    className: cls.name,
-                    sectionName: sec.name
-                  }));
-                  break;
-                }
+        } else {
+          // If manager hasn't added classes yet in Firestore, provide default school grades
+          setClasses([
+            {
+              id: 'class_grade6',
+              name: 'الصف السادس الابتدائي',
+              sections: [
+                { id: 'sec_6a', name: 'أ', students: [] },
+                { id: 'sec_6b', name: 'ب', students: [] }
+              ]
+            },
+            {
+              id: 'class_grade5',
+              name: 'الصف الخامس الابتدائي',
+              sections: [
+                { id: 'sec_5a', name: 'أ', students: [] },
+                { id: 'sec_5b', name: 'ب', students: [] }
+              ]
+            },
+            {
+              id: 'class_grade4',
+              name: 'الصف الرابع الابتدائي',
+              sections: [
+                { id: 'sec_4a', name: 'أ', students: [] }
+              ]
+            }
+          ]);
+        }
+
+        // If student is logged in, try to populate their class/section names if missing
+        if (user && !isAdmin && fetchedClasses && fetchedClasses.length > 0) {
+          for (const cls of fetchedClasses) {
+            for (const sec of cls.sections) {
+              const found = sec.students.find((s: Student) => s.id === user.uid || (user.email && (s as any).email === user.email));
+              if (found) {
+                setStudentInfo({
+                  classId: cls.id,
+                  sectionId: sec.id,
+                  className: cls.name,
+                  sectionName: sec.name
+                });
+                setStats(prev => ({
+                  ...prev,
+                  name: found.name || prev.name,
+                  points: typeof found.points === 'number' ? found.points : prev.points,
+                  className: cls.name,
+                  sectionName: sec.name
+                }));
+                break;
               }
             }
           }
-        } catch (error) {
-          console.error("Failed to fetch classes:", error);
         }
+      } catch (error) {
+        console.error("Failed to fetch classes:", error);
       }
     };
     loadClasses();
@@ -440,19 +474,116 @@ const App: React.FC = () => {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError("");
-    try {
-      const loginEmail = studentLoginName.includes('@')
-        ? studentLoginName
-        : studentLoginName.replace(/\s/g, '').toLowerCase() + '@example.com';
 
-      if (isRegistering) {
-        await createUserWithEmailAndPassword(auth, loginEmail, password);
-      } else {
-        await signInWithEmailAndPassword(auth, loginEmail, password);
+    if (isRegistering) {
+      if (!registerStudentName.trim()) {
+        setAuthError("الرجاء كتابة اسم الطالبة بالكامل");
+        return;
       }
-    } catch (error: any) {
-      console.error("Auth error:", error);
-      setAuthError("حدث خطأ في تسجيل الدخول: " + (error.message || 'تأكدي من صحة البيانات'));
+      if (!selectedRegisterClassId) {
+        setAuthError("الرجاء اختيار الصف الدراسي من القائمة المضافة من المعلمة");
+        return;
+      }
+      if (!studentLoginName.trim()) {
+        setAuthError("الرجاء إدخال اسم المستخدم أو البريد الإلكتروني");
+        return;
+      }
+      if (password.length < 6) {
+        setAuthError("كلمة المرور يجب أن تتكون من 6 أحرف أو أرقام على الأقل");
+        return;
+      }
+
+      try {
+        const loginEmail = studentLoginName.includes('@')
+          ? studentLoginName.trim().toLowerCase()
+          : studentLoginName.trim().replace(/\s/g, '').toLowerCase() + '@tadweer.com';
+
+        // 1. Create student in Firebase Auth
+        const cred = await createUserWithEmailAndPassword(auth, loginEmail, password);
+        const studentUid = cred.user.uid;
+
+        // 2. Identify selected Class & Section
+        const foundClass = classes.find(c => c.id === selectedRegisterClassId);
+        let secId = selectedRegisterSectionId;
+        let secName = "أ";
+
+        if (foundClass && foundClass.sections && foundClass.sections.length > 0) {
+          const foundSec = foundClass.sections.find(s => s.id === secId) || foundClass.sections[0];
+          secId = foundSec.id;
+          secName = foundSec.name;
+        } else {
+          secId = secId || 'sec_' + Date.now();
+        }
+
+        // 3. Register student with Class and Section in Firestore
+        const studentData = await registerStudentWithClass(
+          studentUid,
+          selectedRegisterClassId,
+          secId,
+          registerStudentName.trim(),
+          loginEmail,
+          foundClass?.name || '',
+          secName,
+          password
+        );
+
+        // 4. Update in-memory state
+        setStudentInfo({
+          classId: selectedRegisterClassId,
+          sectionId: secId,
+          className: foundClass?.name || '',
+          sectionName: secName
+        });
+
+        setStats({
+          name: registerStudentName.trim(),
+          level: "صديقة بيئة مبتدئة",
+          points: 0,
+          streak: 0,
+          completedTasks: 0,
+          totalTasks: tasks.length || INITIAL_TASKS.length,
+          recycledItemsCount: 0,
+          className: foundClass?.name || '',
+          sectionName: secName,
+          email: loginEmail
+        });
+
+        // 5. Update classes state so teacher and school see the new student immediately
+        setClasses(prev => prev.map(c => {
+          if (c.id === selectedRegisterClassId) {
+            return {
+              ...c,
+              sections: c.sections.map(s => {
+                if (s.id === secId) {
+                  return { ...s, students: [...s.students, studentData] };
+                }
+                return s;
+              })
+            };
+          }
+          return c;
+        }));
+
+      } catch (error: any) {
+        console.error("Registration error:", error);
+        if (error.code === 'auth/email-already-in-use') {
+          setAuthError("اسم الدخول أو البريد الإلكتروني مسجل بالفعل. يرجى اختيار اسم آخر أو تسجيل الدخول.");
+        } else {
+          setAuthError("حدث خطأ أثناء إنشاء الحساب: " + (error.message || 'تأكدي من البيانات'));
+        }
+      }
+    } else {
+      // Login mode
+      try {
+        const loginEmail = studentLoginName.includes('@')
+          ? studentLoginName.trim().toLowerCase()
+          : studentLoginName.trim().replace(/\s/g, '').toLowerCase() + '@tadweer.com';
+
+        await signInWithEmailAndPassword(auth, loginEmail, password);
+      } catch (error: any) {
+        console.error("Auth error:", error);
+        setAuthError("حدث خطأ في تسجيل الدخول: تأكدي من صحة اسم الدخول وكلمة المرور.");
+      }
     }
   };
 
@@ -669,7 +800,8 @@ const App: React.FC = () => {
   const handleAddStudent = async (classId: string, sectionId: string, name: string) => {
     setLoading(true);
     try {
-      const newStudent = await addStudentToAuthAndFirestore(classId, sectionId, name, 0);
+      const pwd = newStudentPassword.trim() || 'abc@12345';
+      const newStudent = await addStudentToAuthAndFirestore(classId, sectionId, name, 0, pwd);
       await signInWithEmailAndPassword(auth, 'admin@tadweer.com', '123456');
 
       setClasses(prevClasses => prevClasses.map(c => {
@@ -686,6 +818,7 @@ const App: React.FC = () => {
         setSelectedSection(prev => prev ? { ...prev, students: [...prev.students, newStudent] } : null);
       }
       setNewStudentName("");
+      setNewStudentPassword("abc@12345");
       setActiveView(AppView.ADMIN_SECTION_DETAILS);
     } catch (error) {
       console.error("Failed to add student:", error);
@@ -2243,27 +2376,53 @@ const App: React.FC = () => {
         </div>
 
         <div className="bg-white dark:bg-[#162b20] rounded-2xl border border-emerald-100 divide-y dark:divide-gray-800 shadow-sm overflow-hidden">
-          {selectedSection.students.map((student, i) => (
-            <div key={student.id} className="p-3.5 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="text-gray-300 font-bold text-xs">{i + 1}</span>
-                <div>
-                  <p className="text-xs font-bold text-gray-900 dark:text-white">{student.name}</p>
-                  <p className="text-[10px] text-gray-400">اسم الدخول: {student.name.replace(/\s/g, '').toLowerCase()}@example.com</p>
+          {selectedSection.students.map((student, i) => {
+            const studentEmail = student.email || `${student.name.replace(/\s/g, '').toLowerCase()}@tadweer.com`;
+            const studentPassword = student.password || 'abc@12345';
+
+            return (
+              <div key={student.id} className="p-3.5 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="text-gray-300 font-bold text-xs shrink-0">{i + 1}</span>
+                  <div className="min-w-0 space-y-0.5">
+                    <p className="text-xs font-bold text-gray-900 dark:text-white truncate">{student.name}</p>
+                    <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
+                      <span>اسم الدخول:</span>
+                      <span className="font-mono text-gray-600 dark:text-gray-300 select-all truncate">{studentEmail}</span>
+                      <button
+                        onClick={() => copyToClipboard(studentEmail)}
+                        className="hover:text-primary transition-colors text-gray-400 hover:text-emerald-600 shrink-0"
+                        title="نسخ اسم الدخول"
+                      >
+                        <Icon name="content_copy" className="text-[11px]" />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
+                      <span>كلمة المرور:</span>
+                      <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded select-all">{studentPassword}</span>
+                      <button
+                        onClick={() => copyToClipboard(studentPassword)}
+                        className="hover:text-primary transition-colors text-gray-400 hover:text-emerald-600 shrink-0"
+                        title="نسخ كلمة المرور"
+                      >
+                        <Icon name="content_copy" className="text-[11px]" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="text-xs font-black text-primary">{student.points} نقطة</span>
+                  <button
+                    onClick={() => handleDeleteStudent(selectedClass.id, selectedSection.id, student.id)}
+                    className="text-red-400 hover:text-red-600 p-1.5"
+                    title="حذف الطالبة"
+                  >
+                    <Icon name="close" className="text-base" />
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-black text-primary">{student.points} نقطة</span>
-                <button
-                  onClick={() => handleDeleteStudent(selectedClass.id, selectedSection.id, student.id)}
-                  className="text-red-400 hover:text-red-600 p-1.5"
-                  title="حذف الطالبة"
-                >
-                  <Icon name="close" className="text-base" />
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
           {selectedSection.students.length === 0 && (
             <p className="text-center py-10 text-gray-400 text-xs italic">لا توجد طالبات في هذه الشعبة بعد</p>
           )}
@@ -2290,9 +2449,23 @@ const App: React.FC = () => {
           placeholder="مثلاً: ريم خالد القحطاني"
           value={newStudentName}
           onChange={(e) => setNewStudentName(e.target.value)}
-          className="w-full bg-gray-50 dark:bg-gray-900 border-none rounded-2xl p-3.5 text-xs mb-4 focus:ring-primary"
+          className="w-full bg-gray-50 dark:bg-gray-900 border-none rounded-2xl p-3.5 text-xs mb-3 focus:ring-primary"
           dir="rtl"
         />
+
+        <label className="text-xs font-bold block mb-2">كلمة المرور الافتراضية</label>
+        <input
+          type="text"
+          placeholder="abc@12345"
+          value={newStudentPassword}
+          onChange={(e) => setNewStudentPassword(e.target.value)}
+          className="w-full bg-gray-50 dark:bg-gray-900 border-none rounded-2xl p-3.5 text-xs mb-2 focus:ring-primary font-mono"
+          dir="ltr"
+        />
+        <p className="text-[11px] text-gray-400 mb-4">
+          اسم الدخول المتوقع: <span className="font-mono text-emerald-600 dark:text-emerald-400">{newStudentName.trim() ? `${newStudentName.replace(/\s/g, '').toLowerCase()}@tadweer.com` : 'اسم_الطالبة@tadweer.com'}</span>
+        </p>
+
         <button
           disabled={!newStudentName.trim() || loading}
           onClick={() => selectedClass && selectedSection && handleAddStudent(selectedClass.id, selectedSection.id, newStudentName)}
@@ -2349,88 +2522,236 @@ const App: React.FC = () => {
   );
 
   // --- Login View ---
-  const renderLogin = () => (
-    <div className="min-h-screen flex flex-col justify-center items-center p-6 bg-background-light dark:bg-background-dark max-w-[480px] mx-auto shadow-2xl">
-      <div className="w-full space-y-6 animate-in fade-in zoom-in duration-500">
-        <div className="text-center">
-          <div className="size-24 bg-primary/20 rounded-3xl flex items-center justify-center text-primary mx-auto mb-4 shadow-inner ring-4 ring-primary/10">
-            <Icon name="recycling" className="text-6xl text-primary" filled />
-          </div>
-          <h1 className="text-4xl font-black text-primary-dark dark:text-primary mb-1 tracking-tight">تدويري</h1>
-          <p className="text-emerald-700 dark:text-emerald-300 font-bold text-sm">منصة إعادة التدوير والمكافآت المدرسية للطالبات</p>
-          <p className="text-xs text-gray-400 mt-1">افرزي النفايات، اجمعي النقاط، واحصلي على مكافآت مقصف وشهادات تميز</p>
-        </div>
+  const renderLogin = () => {
+    const currentSelectedClass = classes.find(c => c.id === selectedRegisterClassId);
 
-        <form onSubmit={handleAuth} className="bg-white dark:bg-[#162b20] p-6 rounded-[2.5rem] shadow-xl border border-primary/20 space-y-4">
-          {authError && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-2xl text-xs text-center font-bold">
-              {authError}
+    return (
+      <div className="min-h-screen flex flex-col justify-center items-center p-6 bg-background-light dark:bg-background-dark max-w-[480px] mx-auto shadow-2xl">
+        <div className="w-full space-y-5 animate-in fade-in zoom-in duration-500">
+          <div className="text-center">
+            <div className="size-20 bg-primary/20 rounded-3xl flex items-center justify-center text-primary mx-auto mb-3 shadow-inner ring-4 ring-primary/10">
+              <Icon name={isRegistering ? "how_to_reg" : "recycling"} className="text-5xl text-primary" filled />
             </div>
-          )}
-
-          <div>
-            <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-1.5 mr-1 text-right">
-              اسم الطالبة أو البريد الإلكتروني
-            </label>
-            <div className="relative">
-              <Icon name="person" className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
-              <input
-                type="text"
-                value={studentLoginName}
-                onChange={(e) => setStudentLoginName(e.target.value)}
-                className="w-full bg-gray-50 dark:bg-gray-900 border-none rounded-2xl p-3.5 pr-11 text-xs focus:ring-2 focus:ring-primary text-right"
-                placeholder="أدخلي اسمكِ أو بريدكِ المدرسي"
-                required
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-1.5 mr-1 text-right">
-              كلمة المرور
-            </label>
-            <div className="relative">
-              <Icon name="lock" className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-gray-50 dark:bg-gray-900 border-none rounded-2xl p-3.5 pr-11 text-xs focus:ring-2 focus:ring-primary text-right"
-                placeholder="أدخلي كلمة المرور"
-                required
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            className="w-full py-3.5 bg-primary text-white font-black rounded-2xl shadow-lg shadow-primary/30 hover:bg-primary-dark transition-all active:scale-95 text-xs flex items-center justify-center gap-1.5"
-          >
-            <Icon name="login" className="text-base" />
-            <span>{isRegistering ? 'إنشاء حساب طالبة جديد' : 'تسجيل الدخول'}</span>
-          </button>
-
-          <div className="text-center pt-2">
-            <button
-              type="button"
-              onClick={() => { setIsRegistering(!isRegistering); setAuthError(""); }}
-              className="text-xs text-gray-400 hover:text-primary transition-colors font-medium"
-            >
-              {isRegistering ? 'لديكِ حساب بالفعل؟ تسجيل الدخول' : 'حساب جديد؟ سجلي معنا الآن'}
-            </button>
-          </div>
-
-          <div className="pt-3 border-t border-gray-100 dark:border-gray-800 text-center" style={{display: "none"}}>
-            <p className="text-[11px] text-gray-400 leading-relaxed">
-              دخول المشرفة والمعلمة: <span className="font-bold text-primary">admin@tadweer.com</span>
-              <br />
-              كلمة المرور: <span className="font-bold text-primary">123456</span>
+            <h1 className="text-3xl font-black text-primary-dark dark:text-primary mb-1 tracking-tight">
+              {isRegistering ? 'انضمي لنادي التدوير المدرسي' : 'تدويري'}
+            </h1>
+            <p className="text-emerald-700 dark:text-emerald-300 font-bold text-xs">
+              {isRegistering
+                ? 'سجلي بياناتكِ واختاري صفكِ المدرسي لكسب النقاط والمكافآت'
+                : 'منصة إعادة التدوير والمكافآت المدرسية للطالبات'}
             </p>
           </div>
-        </form>
+
+          <form onSubmit={handleAuth} className="bg-white dark:bg-[#162b20] p-6 rounded-[2.5rem] shadow-xl border border-primary/20 space-y-3.5">
+            {authError && (
+              <div className="bg-red-50 text-red-600 p-3 rounded-2xl text-xs text-center font-bold">
+                {authError}
+              </div>
+            )}
+
+            {isRegistering ? (
+              <>
+                {/* 1. Student Full Name */}
+                <div>
+                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-1 mr-1 text-right">
+                    اسم الطالبة الكامل <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Icon name="badge" className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
+                    <input
+                      type="text"
+                      value={registerStudentName}
+                      onChange={(e) => setRegisterStudentName(e.target.value)}
+                      className="w-full bg-gray-50 dark:bg-gray-900 border-none rounded-2xl p-3 pr-11 text-xs focus:ring-2 focus:ring-primary text-right"
+                      placeholder="مثلاً: ريم خالد العتيبي"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* 2. Class Selection Dropdown (Added by Manager) */}
+                <div>
+                  <div className="flex justify-between items-center mb-1 mr-1">
+                    <label className="text-xs font-bold text-gray-700 dark:text-gray-300 text-right">
+                      الصف الدراسي <span className="text-red-500">*</span>
+                    </label>
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                      (قائمة صفوف المدرسة)
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <Icon name="school" className="absolute right-3.5 top-1/2 -translate-y-1/2 text-primary text-lg" />
+                    <select
+                      value={selectedRegisterClassId}
+                      onChange={(e) => {
+                        const newClassId = e.target.value;
+                        setSelectedRegisterClassId(newClassId);
+                        const foundCls = classes.find(c => c.id === newClassId);
+                        if (foundCls && foundCls.sections && foundCls.sections.length > 0) {
+                          setSelectedRegisterSectionId(foundCls.sections[0].id);
+                        } else {
+                          setSelectedRegisterSectionId("");
+                        }
+                      }}
+                      className="w-full bg-gray-50 dark:bg-gray-900 border border-emerald-100 dark:border-emerald-900 rounded-2xl p-3 pr-11 pl-8 text-xs focus:ring-2 focus:ring-primary text-right appearance-none font-bold text-gray-800 dark:text-gray-200"
+                      required
+                    >
+                      <option value="">-- اختاري صفكِ الدراسي من القائمة --</option>
+                      {classes.map(cls => (
+                        <option key={cls.id} value={cls.id}>
+                          {cls.name} {cls.sections.length > 0 ? `(${cls.sections.length} شُعب)` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <Icon name="arrow_drop_down" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* 3. Section Selection Dropdown */}
+                {selectedRegisterClassId && (
+                  <div className="animate-in fade-in duration-200">
+                    <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-1 mr-1 text-right">
+                      الشعبة الدراسية
+                    </label>
+                    <div className="relative">
+                      <Icon name="group" className="absolute right-3.5 top-1/2 -translate-y-1/2 text-primary text-lg" />
+                      <select
+                        value={selectedRegisterSectionId}
+                        onChange={(e) => setSelectedRegisterSectionId(e.target.value)}
+                        className="w-full bg-gray-50 dark:bg-gray-900 border border-emerald-100 dark:border-emerald-900 rounded-2xl p-3 pr-11 pl-8 text-xs focus:ring-2 focus:ring-primary text-right appearance-none font-bold text-gray-800 dark:text-gray-200"
+                        required
+                      >
+                        {currentSelectedClass && currentSelectedClass.sections && currentSelectedClass.sections.length > 0 ? (
+                          currentSelectedClass.sections.map(sec => (
+                            <option key={sec.id} value={sec.id}>
+                              شعبة {sec.name}
+                            </option>
+                          ))
+                        ) : (
+                          <option value="default_sec">شعبة أ (افتراضية)</option>
+                        )}
+                      </select>
+                      <Icon name="arrow_drop_down" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    </div>
+                  </div>
+                )}
+
+                {/* 4. Username / Email */}
+                <div>
+                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-1 mr-1 text-right">
+                    اسم المستخدم أو البريد الإلكتروني <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Icon name="alternate_email" className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
+                    <input
+                      type="text"
+                      value={studentLoginName}
+                      onChange={(e) => setStudentLoginName(e.target.value)}
+                      className="w-full bg-gray-50 dark:bg-gray-900 border-none rounded-2xl p-3 pr-11 text-xs focus:ring-2 focus:ring-primary text-right"
+                      placeholder="مثلاً: reem123 أو reem@school.com"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* 5. Password */}
+                <div>
+                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-1 mr-1 text-right">
+                    كلمة المرور (6 خانات أو أكثر) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Icon name="lock" className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full bg-gray-50 dark:bg-gray-900 border-none rounded-2xl p-3 pr-11 text-xs focus:ring-2 focus:ring-primary text-right"
+                      placeholder="أدخلي كلمة المرور"
+                      minLength={6}
+                      required
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Login Fields */}
+                <div>
+                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-1.5 mr-1 text-right">
+                    اسم الطالبة أو البريد الإلكتروني
+                  </label>
+                  <div className="relative">
+                    <Icon name="person" className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
+                    <input
+                      type="text"
+                      value={studentLoginName}
+                      onChange={(e) => setStudentLoginName(e.target.value)}
+                      className="w-full bg-gray-50 dark:bg-gray-900 border-none rounded-2xl p-3.5 pr-11 text-xs focus:ring-2 focus:ring-primary text-right"
+                      placeholder="أدخلي اسمكِ أو بريدكِ المدرسي"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-1.5 mr-1 text-right">
+                    كلمة المرور
+                  </label>
+                  <div className="relative">
+                    <Icon name="lock" className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full bg-gray-50 dark:bg-gray-900 border-none rounded-2xl p-3.5 pr-11 text-xs focus:ring-2 focus:ring-primary text-right"
+                      placeholder="أدخلي كلمة المرور"
+                      required
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            <button
+              type="submit"
+              className="w-full py-3.5 bg-primary text-white font-black rounded-2xl shadow-lg shadow-primary/30 hover:bg-primary-dark transition-all active:scale-95 text-xs flex items-center justify-center gap-1.5 mt-2"
+            >
+              <Icon name={isRegistering ? "how_to_reg" : "login"} className="text-base" />
+              <span>{isRegistering ? 'إنشاء حساب طالبة والإنضمام للصف' : 'تسجيل الدخول'}</span>
+            </button>
+
+            <div className="text-center pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const nextState = !isRegistering;
+                  setIsRegistering(nextState);
+                  setAuthError("");
+                  if (nextState && classes.length > 0 && !selectedRegisterClassId) {
+                    setSelectedRegisterClassId(classes[0].id);
+                    if (classes[0].sections && classes[0].sections.length > 0) {
+                      setSelectedRegisterSectionId(classes[0].sections[0].id);
+                    }
+                  }
+                }}
+                className="text-xs text-primary font-bold hover:underline transition-colors"
+              >
+                {isRegistering ? 'لديكِ حساب بالفعل؟ تسجيل الدخول' : 'طالبة جديدة؟ سجلي واختاري صفكِ الآن'}
+              </button>
+            </div>
+
+            <div className="pt-3 border-t border-gray-100 dark:border-gray-800 text-center" style={{display: 'none'}}>
+              <p className="text-[11px] text-gray-400 leading-relaxed">
+                دخول المشرفة والمعلمة: <span className="font-bold text-primary">admin@tadweer.com</span>
+                <br />
+                كلمة المرور: <span className="font-bold text-primary">123456</span>
+              </p>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   if (!isLoggedIn) return renderLogin();
 

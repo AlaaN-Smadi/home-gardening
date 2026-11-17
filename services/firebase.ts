@@ -211,9 +211,15 @@ export const deleteCompetitionFromFirestore = async (id: string) => {
 };
 
 // Function to add a student to Firestore and register them in Firebase Auth
-export const addStudentToAuthAndFirestore = async (classId: string, sectionId: string, studentName: string, initialPoints: number) => {
-  const email = studentName.replace(/\s/g, '').toLowerCase() + '@example.com';
-  const password = studentName.replace(/\s/g, '') + '123';
+export const addStudentToAuthAndFirestore = async (
+  classId: string, 
+  sectionId: string, 
+  studentName: string, 
+  initialPoints: number,
+  customPassword?: string
+) => {
+  const email = studentName.replace(/\s/g, '').toLowerCase() + '@tadweer.com';
+  const password = customPassword && customPassword.trim().length >= 6 ? customPassword.trim() : 'abc@12345';
 
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -224,6 +230,7 @@ export const addStudentToAuthAndFirestore = async (classId: string, sectionId: s
       name: studentName,
       points: initialPoints,
       email: email,
+      password: password,
       classId: classId,
       sectionId: sectionId,
       completedTasks: {},
@@ -241,6 +248,49 @@ export const addStudentToAuthAndFirestore = async (classId: string, sectionId: s
     console.error("Error adding student to Auth and Firestore:", error);
     throw error;
   }
+};
+
+// Function to register a self-signing student into a chosen class & section
+export const registerStudentWithClass = async (
+  studentUid: string,
+  classId: string,
+  sectionId: string,
+  studentName: string,
+  email: string,
+  className?: string,
+  sectionName?: string,
+  password?: string
+) => {
+  const studentData = {
+    id: studentUid,
+    name: studentName,
+    points: 0,
+    email: email,
+    password: password || 'abc@12345',
+    classId: classId,
+    sectionId: sectionId,
+    className: className || '',
+    sectionName: sectionName || '',
+    completedTasks: {},
+    lastOpenDate: serverTimestamp(),
+    createdAt: serverTimestamp()
+  };
+
+  if (classId && sectionId) {
+    try {
+      await setDoc(doc(db, 'classes', classId, 'sections', sectionId, 'students', studentUid), studentData);
+    } catch (e) {
+      console.warn("Could not save to class subcollection:", e);
+    }
+  }
+
+  try {
+    await setDoc(doc(db, 'users', studentUid), studentData);
+  } catch (e) {
+    console.warn("Could not save to users collection:", e);
+  }
+
+  return studentData;
 };
 
 // Comprehensive function to fetch student's class, section, and profile info
